@@ -1,0 +1,7 @@
+What it does
+
+=>Tracks student answers in real time
+
+=>Detects weak concepts using ML (Bayesian Knowledge Tracing / simple classifiers)
+
+=>Suggests personalized practice questions instantly
