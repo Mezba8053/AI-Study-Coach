@@ -5,3 +5,40 @@ What it does
 =>Detects weak concepts using ML (Bayesian Knowledge Tracing / simple classifiers)
 
 =>Suggests personalized practice questions instantly
+
+
+2️⃣ DESIGN CORE FEATURES (MVP)
+🔹 Feature 1: Practice Interface
+
+Show question
+
+User submits answer
+
+Instant feedback (correct / wrong)
+
+🔹 Feature 2: Student Knowledge Model (AI CORE)
+
+Track:
+
+Question ID
+
+Concept tag (e.g., “fractions”)
+
+Correct / incorrect
+
+Time taken
+
+🔹 Feature 3: Weak Area Detection
+Detect:
+
+Low accuracy concepts
+
+High time taken
+
+Recent mistakes
+
+🔹 Feature 4: Personalized Recommendation
+
+Suggest easier questions for weak concepts
+
+Increase difficulty for strong ones
