@@ -74,9 +74,9 @@ const LlmAdaptedStudyMethod=()=>{
                 <button className="search-button">Search</button>
             </search>
             <menu className="menu">
-                <button className="button">Summarize Text</button>
-                <button className="button" onClick={() => navigate("/generate-quiz")}>Generate Quiz</button>
-                <button className="button">Explain Concept</button>
+                <button className="button"onClick={() =>navigate("/summarize", { state: { prompt } })}>Summarize Text</button>
+                <button className="button" onClick={() => navigate("/gem", { state: { prompt } })}>Generate Quiz</button>
+                <button className="button"onClick={()=>navigate('/written-exam', { state: { prompt } })}>Take a Written Exam</button>
                 <button className="button">Create Study Plan</button>
             </menu>
             <br/>
