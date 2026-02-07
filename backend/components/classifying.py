@@ -1,14 +1,14 @@
-from fastapi import FastAPI
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-app= FastAPI()
+router = APIRouter()
  
 class QuizFormat(BaseModel):
     content: str
     question: str
     options: list[str]
     answer: str
-@app.post("/format_quiz")
+@router.post("/format_quiz")
 async def format_quiz(quiz: QuizFormat):
     raw_quiz = quiz.content
     lines=raw_quiz.split("\n")

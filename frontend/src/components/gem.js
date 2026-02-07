@@ -1,8 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
-import React, { useState, useEffect, useCallback } from "react";
+// import {openAI} from "@openai/openai";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 const ai = new GoogleGenAI({ apiKey: process.env.REACT_APP_GOOGLE_API_KEY });
+// const ai=new openAI({ apiKey: process.env.REACT_APP_OPENAI_API_KEY });
 console.log("API Key loaded:", !!process.env.REACT_APP_GOOGLE_API_KEY);
 const formatQuizResponse = async (responseText) => {
   try {
@@ -32,13 +34,20 @@ const Gem = () => {
     const [answerKey, setAnswerKey] = useState('');
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [showResult, setShowResult] = useState({});
+    const [errorMessage, setErrorMessage] = useState("");
+    const isGeneratingRef = useRef(false);
+    const hasGeneratedRef = useRef(false);
 
     const generateQuiz = useCallback(async () => {
-        setLoading(true);
+      if (!prompt || isGeneratingRef.current) return;
+      isGeneratingRef.current = true;
+      setLoading(true);
+      setErrorMessage("");
         try {
             const modelId = "gemini-2.5-flash"; 
+            // const modelId="openai/gpt-4.1-flash"; // Use the correct model ID for Gemini 2.5 Flash
           
-            async function callGeminiWithRetry(prompt, retries = 3) {
+        async function callGeminiWithRetry(prompt, retries = 4, baseDelayMs = 2000) {
                 try {
                     const fullPrompt = `Quiz Topic Name: ${prompt}\nGenerate a quiz (multiple choice) with 10 questions and answers. Format: "1. Question", "a) Option", and an "Answer Key" section at the end.`;
                     
@@ -50,11 +59,13 @@ const Gem = () => {
                     // NEW SDK: use .text property
                     return response.text; 
                 } catch (error) {
-                    if (error.status === 429 && retries > 0) {
-                        await new Promise(res => setTimeout(res, 15000));
-                        return callGeminiWithRetry(prompt, retries - 1);
-                    }
-                    throw error;
+                  if (error?.status === 429 && retries > 0) {
+                    const jitter = Math.floor(Math.random() * 1000);
+                    const delay = baseDelayMs * Math.pow(2, (4 - retries)) + jitter;
+                    await new Promise(res => setTimeout(res, delay));
+                    return callGeminiWithRetry(prompt, retries - 1, baseDelayMs);
+                  }
+                  throw error;
                 }
             }
 
@@ -65,8 +76,10 @@ const Gem = () => {
             setAnswerKey(formattedQuiz.answer_key);
         } catch (error) {
             console.error("AI Error:", error);
+            setErrorMessage("Rate limit hit. Please wait a moment and try again.");
         } finally {
             setLoading(false);
+            isGeneratingRef.current = false;
         }
     }, [prompt]);
 const saveQuiz=async(quizData)=>{
@@ -94,7 +107,7 @@ const getButtonStyle = (qIndex, option, correctAnswer) => {
   if (!showResult[qIndex]) return {};
 
   if (option === correctAnswer) {
-    return { backgroundColor: "#4CAF50", color: "white" }; // green
+    return { backgroundColor: "#1bae20", color: "white" }; // green
   }
 
   if (selectedAnswers[qIndex] === option) {
@@ -120,10 +133,9 @@ const handleAnswerClick = (qIndex, option) => {
 // const [showResult, setShowResult] = useState({});
 
     useEffect(() => {
-        if (prompt) {
-            generateQuiz();
-            // {state:}
-        }
+      if (!prompt || hasGeneratedRef.current) return;
+      hasGeneratedRef.current = true;
+      generateQuiz();
     }, [generateQuiz, prompt]);
 
     return (
@@ -136,7 +148,7 @@ const handleAnswerClick = (qIndex, option) => {
  <div style={{ maxWidth: "800px", margin: "auto" }}>
   <h1 style={{ color: "#2563eb", textAlign: "center" }}>
     Multiple Choice Quiz
-  </h1>
+  </h1> 
 
   {quiz.questions?.slice(0, 10).map((q, index) => (
 
@@ -181,7 +193,8 @@ const handleAnswerClick = (qIndex, option) => {
     </div>
   ))}
 </div>
-}  
+}
+{errorMessage && <p style={{ color: "#dc2626" }}>{errorMessage}</p>}  
 <button onClick= {()=>saveQuiz(quiz)}>Save Quiz</button>        
  <button onClick={() => window.history.back()}>Back</button>
         </div>
