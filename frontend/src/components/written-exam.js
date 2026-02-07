@@ -1,111 +1,208 @@
-import { GoogleGenAI } from "@google/genai";
-// import {openAI} from "@openai/openai";
 import React, { useState, useEffect, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
-const ai = new GoogleGenAI({ apiKey: process.env.REACT_APP_GOOGLE_API_KEY });
-// const ai=new openAI({ apiKey: process.env.REACT_APP_OPENAI_API_KEY });
-console.log("API Key loaded:", !!process.env.REACT_APP_OPENAI_API_KEY);
- const formatwrittenExamResponse=async(responseText)=>
-    {
-        try{
-            const res =await fetch("/format-written-exam",{
-                method:"POST",
-                headers:{"Content-Type":"application/json"},
-                body:JSON.stringify({content:responseText})
-            });
-            if(!res.ok)
-            {
-                throw new Error(`HTTP error! status:${res.status}`);
-            }
-            const data=await res.json();
-            return data;
-        }
-        catch(error)
-        {
-            console.error("Error formatting written exam:",error);
-            return { questions: [] };
-        }
-        
-    };
-const WrittenExam=()=>
-{
-    const location = useLocation();
-    const prompt=location.state?.prompt ||'';
-    const [examQuestions,setExamQuestions]=React.useState({ questions: [] });
-    const navigate=useNavigate();
-        const [loading, setLoading] = useState(false);
-    
-    // const submit=useSubmit();
-    const generateExam= useCallback(async () => 
-    {
-                 setLoading(true);
-                try {
-                    const modelId = "gemini-2.5-flash"; 
+/* ---------- FORMAT EXAM ---------- */
+const formatwrittenExamResponse = async (responseText) => {
+  try {
+    const res = await fetch("/format-written-exam", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: responseText })
+    });
 
-                    async function callGeminiWithRetry(prompt, retries = 3) {
-                try {
-                    const fullPrompt = `Create a written exam based(not mcq but elaborate questions) on the following study material:\n${prompt}`;
-                    
-                    const response = await ai.models.generateContent({
-                        model: modelId,
-                        contents: fullPrompt // The new SDK accepts strings directly here
-                    });
-                    return response.text; 
-                } catch (error) {
-                    if (error.status === 429 && retries > 0) {
-                        await new Promise(res => setTimeout(res, 15000));
-                        return callGeminiWithRetry(prompt, retries - 1);
-                    }
-                    throw error;
-                }
-            }
-            
-            const responseText = await callGeminiWithRetry(prompt);
-            const formattedExam = await formatwrittenExamResponse(responseText);
-
-            setExamQuestions(formattedExam || { questions: [] });
-
-            
-     } catch (error) {
-            console.error("AI Error:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [prompt]);
-    React.useEffect(()=>
-    {
-        generateExam();
-    },[]);
-
-    return(
-        <div style={{ maxWidth: "800px", margin: "auto" }}>
-  <h1 style={{ color: "#2563eb", textAlign: "center" }}>
-     Written Exam
-  </h1>
-    {examQuestions?.questions?.map((q, index) => (
-    <div key={index} style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f4ff", borderRadius: "8px" }}>
-      <p style={{ fontWeight: "bold" }}>{q.question}</p>
-      {/* <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
-        {q.options.map((option, idx) => (
-          <li key={idx} style={{ marginBottom: "10px" }}>
-            <label style={{ display: "block", cursor: "pointer" }}>
-              <input
-                type="radio"
-                name={`question-${index}`}
-                value={option}
-                // onChange={() => setSelectedAnswers(prev => ({ ...prev, [index]: option }))}
-                style={{ marginRight: "10px" }}
-              />
-              {option}
-            </label>
-          </li>
-        ))}
-      </ul> */}
-    </div>
-  ))}  
-                </div>
-       
-    );
+    if (!res.ok) throw new Error("Formatting failed");
+    return await res.json();
+  } catch (err) {
+    console.error(err);
+    return { questions: [] };
+  }
 };
+
+/* ---------- MAIN COMPONENT ---------- */
+const WrittenExam = () => {
+  const location = useLocation();
+  const prompt = location.state?.prompt || "";
+
+  const [exam, setExam] = useState({ questions: [] });
+  const [answers, setAnswers] = useState({});
+  const [evaluations, setEvaluations] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [evaluating, setEvaluating] = useState({});
+
+  /* ---------- GENERATE EXAM ---------- */
+  const generateExam = useCallback(async (force = false) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/generate-written-exam", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, force, nonce: force ? String(Date.now()) : null })
+      });
+
+      if (!res.ok) throw new Error("Failed to generate exam");
+      const data = await res.json();
+      const formatted = await formatwrittenExamResponse(data.text || "");
+      const newQuestions = formatted?.questions || [];
+      if (force) {
+        setExam(prev => {
+          const existing = prev?.questions || [];
+          const merged = [
+            ...existing,
+            ...newQuestions.filter(
+              q => !existing.some(e => e.question === q.question)
+            )
+          ];
+          return { questions: merged };
+        });
+      } else {
+        setExam({ questions: newQuestions });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [prompt]);
+
+  useEffect(() => {
+    generateExam(false);
+  }, []
+);
+
+  /* ---------- EVALUATE ANSWER ---------- */
+  const evaluateAnswer = async (index, question, answer) => {
+    setEvaluating(prev => ({ ...prev, [index]: true }));
+
+    try {
+      const res = await fetch("/api/grade-written-answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, answer })
+      });
+
+      if (!res.ok) throw new Error("Failed to grade answer");
+      const data = await res.json();
+      const result = data.result;
+      const display = result
+        ? `Score: ${result.score}/10\nFeedback: ${result.feedback}\nImprove: ${result.improve}`
+        : data.text;
+      setEvaluations(prev => ({
+        ...prev,
+        [index]: display
+      }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEvaluating(prev => ({ ...prev, [index]: false }));
+    }
+  };
+
+  /* ---------- UI ---------- */
+  return (
+    <div style={styles.page}>
+      <h1 style={styles.title}>Written Examination</h1>
+
+      {loading && <p style={styles.center}>Generating exam…</p>}
+
+      {exam.questions.map((q, index) => (
+        <div key={index} style={styles.card}>
+          <p style={styles.question}>
+            Q{index + 1}. {q.question}
+          </p>
+
+          <textarea
+            placeholder="Write your answer here…"
+            value={answers[index] || ""}
+            onChange={e =>
+              setAnswers(prev => ({ ...prev, [index]: e.target.value }))
+            }
+            style={styles.textarea}
+          />
+
+          <button
+            style={styles.evaluateBtn}
+            disabled={!answers[index] || evaluating[index]}
+            onClick={() =>
+              evaluateAnswer(index, q.question, answers[index])
+            }
+          >
+            {evaluating[index] ? "Evaluating…" : "Evaluate Answer"}
+          </button>
+
+          {evaluations[index] && (
+            <div style={styles.feedback}>
+              <pre style={styles.feedbackText}>
+                {evaluations[index]}
+              </pre>
+            </div>
+          )}
+
+        </div>
+        
+      ))}
+              <button onClick={() => generateExam(true)}>More Question</button>  
+
+    </div>
+  );
+};
+
+const styles = {
+  page: {
+    maxWidth: "900px",
+    margin: "40px auto",
+    padding: "20px",
+    fontFamily: "system-ui"
+  },
+  title: {
+    textAlign: "center",
+    color: "#1e40af",
+    marginBottom: "30px"
+  },
+  center: {
+    textAlign: "center"
+  },
+  card: {
+    background: "#ffffff",
+    borderRadius: "12px",
+    padding: "20px",
+    marginBottom: "25px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.08)"
+  },
+  question: {
+    fontSize: "16px",
+    fontWeight: "600",
+    marginBottom: "12px"
+  },
+  textarea: {
+    width: "100%",
+    minHeight: "120px",
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    fontSize: "14px",
+    resize: "vertical",
+    outline: "none"
+  },
+  evaluateBtn: {
+    marginTop: "12px",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#2563eb",
+    color: "#fff",
+    cursor: "pointer"
+  },
+  feedback: {
+    marginTop: "15px",
+    background: "#f9fafb",
+    padding: "12px",
+    borderRadius: "8px",
+    borderLeft: "4px solid #22c55e"
+  },
+  feedbackText: {
+    whiteSpace: "pre-wrap",
+    fontSize: "13px"
+  }
+};
+
 export default WrittenExam;

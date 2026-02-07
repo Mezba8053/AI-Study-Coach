@@ -1,11 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
-// import {openAI} from "@openai/openai";
+ 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
-
-const ai = new GoogleGenAI({ apiKey: process.env.REACT_APP_GOOGLE_API_KEY });
-// const ai=new openAI({ apiKey: process.env.REACT_APP_OPENAI_API_KEY });
-console.log("API Key loaded:", !!process.env.REACT_APP_GOOGLE_API_KEY);
 const formatQuizResponse = async (responseText) => {
   try {
     const res = await fetch("/format-quiz", {
@@ -44,32 +39,16 @@ const Gem = () => {
       setLoading(true);
       setErrorMessage("");
         try {
-            const modelId = "gemini-2.5-flash"; 
-            // const modelId="openai/gpt-4.1-flash"; // Use the correct model ID for Gemini 2.5 Flash
-          
-        async function callGeminiWithRetry(prompt, retries = 4, baseDelayMs = 2000) {
-                try {
-                    const fullPrompt = `Quiz Topic Name: ${prompt}\nGenerate a quiz (multiple choice) with 10 questions and answers. Format: "1. Question", "a) Option", and an "Answer Key" section at the end.`;
-                    
-                    const response = await ai.models.generateContent({
-                        model: modelId,
-                        contents: fullPrompt // The new SDK accepts strings directly here
-                    });
-
-                    // NEW SDK: use .text property
-                    return response.text; 
-                } catch (error) {
-                  if (error?.status === 429 && retries > 0) {
-                    const jitter = Math.floor(Math.random() * 1000);
-                    const delay = baseDelayMs * Math.pow(2, (4 - retries)) + jitter;
-                    await new Promise(res => setTimeout(res, delay));
-                    return callGeminiWithRetry(prompt, retries - 1, baseDelayMs);
-                  }
-                  throw error;
-                }
+            const res = await fetch("/api/generate-quiz", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ prompt })
+            });
+            if (!res.ok) {
+              throw new Error(`HTTP error! status: ${res.status}`);
             }
-
-            const responseText = await callGeminiWithRetry(prompt);
+            const data = await res.json();
+            const responseText = data.text || "";
             const formattedQuiz = await formatQuizResponse(responseText);
             
             setQuiz(formattedQuiz);
@@ -194,6 +173,7 @@ const handleAnswerClick = (qIndex, option) => {
   ))}
 </div>
 }
+<button onClick={()=>generateQuiz()}>More Question</button>
 {errorMessage && <p style={{ color: "#dc2626" }}>{errorMessage}</p>}  
 <button onClick= {()=>saveQuiz(quiz)}>Save Quiz</button>        
  <button onClick={() => window.history.back()}>Back</button>

@@ -8,6 +8,7 @@ import LlmAdaptedStudyMethod from './components/llm-adapted-study-method';
 import Gem from './components/gem';
 import Summarize from './components/summarize';
 import WrittenExam from './components/written-exam';
+import Profile from './components/profile';
 function App() {
   return (
     <BrowserRouter>
@@ -20,6 +21,7 @@ function App() {
         <Route path='/gem' element={<Gem/>}/>
         <Route path='/summarize' element={<Summarize/>}/>
         <Route path='/written-exam' element={<WrittenExam/>}/>
+        <Route path='/profile' element={<Profile/>}/>
       </Routes>
     </div>
     </BrowserRouter>
