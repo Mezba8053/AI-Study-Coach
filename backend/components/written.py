@@ -27,14 +27,14 @@ async def format_written_exam(written: WrittenExamRequest):
             if re.match(r"^(Q\d+\.?\s*)?\d+\.?\s+", line, flags=re.IGNORECASE):
                 if current:
                     questions.append({"question": current.strip()})
-                current+=line
-                # current = _clean_prefix(current)
+                # current+=line
+                current = _clean_prefix(line)
             elif current:
                 current += " " + line
 
         if current:
             questions.append({"question": current.strip()})
-
+            
         return {"questions": questions}
     except Exception as e:
         return {"status": "error", "message": str(e)}

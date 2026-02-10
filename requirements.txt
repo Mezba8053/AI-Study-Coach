@@ -2,3 +2,6 @@ fastapi
 pydantic
 uvicorn
 google-generativeai
+supabase
+python-dotenv
+psycopg2-binary

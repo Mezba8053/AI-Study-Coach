@@ -30,19 +30,29 @@ const Gem = () => {
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [showResult, setShowResult] = useState({});
     const [errorMessage, setErrorMessage] = useState("");
+    const [difficulty, setDifficulty] = useState("medium");
+    const score = Object.keys(showResult).filter(q => showResult[q] && selectedAnswers[q] === answerKey[q]).length;
     const isGeneratingRef = useRef(false);
     const hasGeneratedRef = useRef(false);
 
-    const generateQuiz = useCallback(async () => {
+    const generateQuiz = useCallback(async (force = false) => {
       if (!prompt || isGeneratingRef.current) return;
       isGeneratingRef.current = true;
       setLoading(true);
+      if(score>=4){
+        setDifficulty("hard");
+      }  
       setErrorMessage("");
         try {
             const res = await fetch("/api/generate-quiz", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ prompt })
+              body: JSON.stringify({
+                prompt,
+                difficulty,
+                force,
+                nonce: force ? String(Date.now()) : null
+              })
             });
             if (!res.ok) {
               throw new Error(`HTTP error! status: ${res.status}`);
@@ -60,7 +70,7 @@ const Gem = () => {
             setLoading(false);
             isGeneratingRef.current = false;
         }
-    }, [prompt]);
+    }, [prompt, difficulty]);
 const saveQuiz=async(quizData)=>{
   try {
     const response = await fetch('/api/saveQuiz', {
@@ -68,7 +78,13 @@ const saveQuiz=async(quizData)=>{
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(quizData),
+      body: JSON.stringify({
+        quizData: {
+          topic: prompt,
+          questions: quizData.questions,
+          answer_key: quizData.answer_key
+        }
+      }),
     });
 
     if (!response.ok) {
@@ -121,6 +137,7 @@ const handleAnswerClick = (qIndex, option) => {
         <div>
             <h1>Generated Quiz</h1>
             <h2>Based on: {prompt}</h2>
+            <p>Score: {score} correct</p>
             
 {loading ? <p>Loading...</p> :
 
@@ -173,7 +190,7 @@ const handleAnswerClick = (qIndex, option) => {
   ))}
 </div>
 }
-<button onClick={()=>generateQuiz()}>More Question</button>
+<button onClick={() => generateQuiz(true)}>More Question</button>
 {errorMessage && <p style={{ color: "#dc2626" }}>{errorMessage}</p>}  
 <button onClick= {()=>saveQuiz(quiz)}>Save Quiz</button>        
  <button onClick={() => window.history.back()}>Back</button>

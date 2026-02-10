@@ -1,5 +1,5 @@
+
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from supabase import create_client
 from dotenv import load_dotenv
 from pathlib import Path
@@ -7,19 +7,16 @@ import os
 import psycopg2
 from postgrest.exceptions import APIError
 
-# Load env from backend and frontend .env if present
 base_dir = Path(__file__).resolve().parents[2]
 load_dotenv(base_dir / ".env")
 load_dotenv(base_dir / "frontend" / ".env")
 
 router = APIRouter()
-class SaveQuizRequest(BaseModel):
-    quizData: dict
+
 
 def _get_supabase_client():
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_API_KEY") or os.getenv("SUPABASE_KEY")
-    print(f"Supabase URL: {url}, Key: {'***' if key else None}")
     if not url or not key:
         return None
     return create_client(url, key)
@@ -51,29 +48,34 @@ def _ensure_quizzes_table():
         return False
 
 
-# @router.post("/api/save-quiz")
-@router.post("/api/saveQuiz")
-async def saveQuiz(req: SaveQuizRequest):
+@router.get("/api/quiz-history")
+async def quiz_history():
     client = _get_supabase_client()
     if not client:
         raise HTTPException(status_code=500, detail="Supabase not configured")
 
-    if not req.quizData:
-        raise HTTPException(status_code=400, detail="Missing quiz data")
-
     try:
         result = (
             client.table("quizzes")
-            .insert({"payload": req.quizData})
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(50)
             .execute()
         )
-        return {"success": True, "data": result.data}
+        return result.data
     except APIError as e:
         if e.code == "PGRST205" and _ensure_quizzes_table():
             result = (
                 client.table("quizzes")
-                .insert({"payload": req.quizData})
+                .select("*")
+                .order("created_at", desc=True)
+                .limit(50)
                 .execute()
             )
-            return {"success": True, "data": result.data}
+            return result.data
+        if e.code == "PGRST205":
+            raise HTTPException(
+                status_code=500,
+                detail="Table 'quizzes' not found. Set SUPABASE_DB_URL (or DATABASE_URL) so the backend can auto-create it, or create the table manually in Supabase SQL editor.",
+            )
         raise

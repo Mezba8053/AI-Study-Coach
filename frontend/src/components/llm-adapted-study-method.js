@@ -1,10 +1,17 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState ,useEffect} from "react";
 const LlmAdaptedStudyMethod=()=>{
     // const promp
     const[prompt,setPrompt]=useState("");
+    const[history,setHistory]=useState([]);
     const navigate=useNavigate();
+    useEffect(() => {
+  fetch("/api/quiz-history")
+    .then(r => r.json())
+    .then(setHistory);
+}, []);
+
     return(
         <div>
             {/* <h1>LLM Help Component</h1> */}
@@ -77,6 +84,8 @@ const LlmAdaptedStudyMethod=()=>{
                 <button className="button"onClick={() =>navigate("/summarize", { state: { prompt } })}>Summarize Text</button>
                 <button className="button" onClick={() => navigate("/gem", { state: { prompt } })}>Generate Quiz</button>
                 <button className="button"onClick={()=>navigate('/written-exam', { state: { prompt } })}>Take a Written Exam</button>
+                <button className="button"onClick={()=>navigate("/quiz-view", { state: { text: history.length > 0 ? history[0].raw_text : "" } })}>View Saved Quizzes</button>
+
                 <button className="button">Create Study Plan</button>
             </menu>
             <br/>
