@@ -20,7 +20,7 @@ Bayesian Knowledge Tracing
 
 ## Tech Stack
 
-React, Flask, Scikit-learn
+React,  Scikit-learn, agentic ai
 
 ## License
 
